@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supervisor Control Dashboard</title>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+    <style>
+        :root {
+            --bg-color: #030712;
+            --lamp-color: #f59e0b;
+            --glow-intensity: rgba(245, 158, 11, 0.6);
+        }
+        body { font-family: 'Inter', system-ui, sans-serif; background: var(--bg-color); color: #f1f5f9; margin: 0; padding: 20px; display: flex; justify-content: center; transition: background 0.5s ease; position: relative; overflow-x: hidden; }
+        
+        /* Star Particles Sprinkles */
+        .star {
+            position: absolute; background: white; border-radius: 50%; opacity: 0.8;
+            pointer-events: none; animation: twinkle 2s infinite ease-in-out;
+        }
+        @keyframes twinkle {
+            0%, 100% { transform: scale(0.5); opacity: 0.3; }
+            50% { transform: scale(1.2); opacity: 1; box-shadow: 0 0 8px var(--lamp-color); }
+        }
+
+        .card { background: #111827; border: 1px solid #1f2937; padding: 30px; border-radius: 16px; box-shadow: 0 20px 25px rgba(0,0,0,0.6); width: 100%; max-width: 920px; box-sizing: border-box; z-index: 2; position: relative; }
+        
+        h2 { text-align: center; color: #38bdf8; font-weight: 700; margin-top: 0; }
+
+        .lamp-section { text-align: center; background: #030712; border: 1px solid #1f2937; border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+        .lamp-shade { width: 100px; height: 50px; background: var(--lamp-color); clip-path: polygon(20% 0%, 80% 0%, 100% 100%, 0% 100%); margin: 0 auto; box-shadow: 0 10px 30px var(--glow-intensity); transition: all 0.4s ease; }
+        .pull-chain { width: 4px; height: 50px; background: #94a3b8; margin: 0 auto; position: relative; cursor: pointer; }
+        .chain-handle { width: 12px; height: 20px; background: var(--lamp-color); border-radius: 6px; position: absolute; bottom: -20px; left: -4px; cursor: pointer; transition: transform 0.1s, background 0.4s; }
+        .pull-chain:active .chain-handle { transform: translateY(12px); }
+        .lamp-hint { font-size: 11px; color: #94a3b8; margin-top: 22px; text-transform: uppercase; letter-spacing: 1px; }
+
+        label { display: block; margin-top: 15px; font-weight: 500; color: #d1d5db; font-size: 14px; }
+        select { width: 100%; padding: 12px; margin-top: 8px; border: 1px solid #374151; border-radius: 8px; background: #030712; color: white; font-size: 14px; outline: none; cursor: pointer; }
+
+        .section-box { margin-top: 20px; padding: 20px; background: #030712; border-radius: 12px; border: 1px solid #1f2937; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 13px; }
+        th, td { border: 1px solid #1f2937; padding: 12px; text-align: left; vertical-align: top; }
+        th { background: #1f2937; color: #38bdf8; font-weight: 600; }
+        tr:hover { background: rgba(255, 255, 255, 0.01); }
+
+        .shift-badge-day {
+            display: inline-block; background: rgba(245, 158, 11, 0.15); border: 1px solid #f59e0b;
+            color: #fbbf24; padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: 600;
+            margin: 2px 3px; white-space: nowrap;
+        }
+        .shift-badge-night {
+            display: inline-block; background: rgba(59, 130, 246, 0.15); border: 1px solid #3b82f6;
+            color: #60a5fa; padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: 600;
+            margin: 2px 3px; white-space: nowrap;
+        }
+        .opt-out-badge {
+            display: inline-block; background: rgba(148, 163, 184, 0.15); border: 1px solid #64748b;
+            color: #cbd5e1; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 600;
+        }
+        .postcode-pill {
+            display: inline-block; background: rgba(56, 189, 248, 0.12); border: 1px solid rgba(56, 189, 248, 0.4);
+            color: #7dd3fc; padding: 2px 7px; border-radius: 5px; font-size: 11px; font-weight: 600;
+        }
+
+        .btn-group { display: flex; gap: 6px; }
+        .btn-view {
+            background: rgba(56, 189, 248, 0.2); border: 1px solid #38bdf8; color: #7dd3fc;
+            padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;
+            transition: background 0.2s;
+        }
+        .btn-view:hover { background: rgba(56, 189, 248, 0.4); }
+
+        .btn-delete {
+            background: rgba(239, 68, 68, 0.2); border: 1px solid #ef4444; color: #fca5a5;
+            padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;
+            transition: background 0.2s;
+        }
+        .btn-delete:hover { background: rgba(239, 68, 68, 0.4); }
+
+        .warden-tag {
+            display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap;
+            background: #111827; border: 1px solid #1f2937; padding: 10px 14px;
+            border-radius: 8px; margin-bottom: 8px; font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- PASSWORD PROTECTION SCRIPT -->
+    <script>
+        let pass = prompt("🔒 Enter Supervisor Password to Access Control Dashboard:");
+        if (pass !== "Myopia65@") {
+            alert("Access Denied! Incorrect Password.");
+            window.location.href = "index.html";
+        }
+    </script>
+
+    <!-- Star Container -->
+    <div id="starContainer"></div>
+
+<div class="card">
+    <h2>Control Dashboard</h2>
+
+    <div class="lamp-section">
+        <div class="lamp-shade" id="lampShade"></div>
+        <div class="pull-chain" onclick="pullLampChain()">
+            <div class="chain-handle" id="chainHandle"></div>
+        </div>
+        <div class="lamp-hint">Pull Lamp Wire to Change Ambient Theme</div>
+    </div>
+
+    <div class="section-box">
+        <h3 style="font-size:16px; margin-top:0; color:#38bdf8;">Registered Wardens Management:</h3>
+        <div id="wardenQuickList" style="max-height: 220px; overflow-y: auto;">
+            Loading wardens from cloud...
+        </div>
+    </div>
+
+    <div class="section-box">
+        <label>Filter Rota by Date & Shift:</label>
+        <select id="querySlot" onchange="filterTableBySlot()"></select>
+    </div>
+
+    <div class="section-box">
+        <h3 id="listTitle" style="font-size:16px; margin-top:0; color:#38bdf8;">Master Submissions Rota List:</h3>
+        <div id="masterList" style="overflow-x:auto;">Loading...</div>
+    </div>
+</div>
+
+<script>
+    const firebaseConfig = {
+        databaseURL: "https://availability-portal-default-rtdb.firebaseio.com"
+    };
+    if (!firebase.apps.length) {
+        firebase.initializeApp(firebaseConfig);
+    }
+    const db = firebase.database();
+
+    const themes = [
+        { bg: "#030712", lamp: "#f59e0b", glow: "rgba(245, 158, 11, 0.6)" },
+        { bg: "#064e3b", lamp: "#10b981", glow: "rgba(16, 185, 129, 0.6)" },
+        { bg: "#1e1b4b", lamp: "#8b5cf6", glow: "rgba(139, 92, 246, 0.6)" },
+        { bg: "#451a03", lamp: "#f97316", glow: "rgba(249, 115, 22, 0.6)" }
+    ];
+    let themeIdx = 0;
+
+    function pullLampChain() {
+        themeIdx = (themeIdx + 1) % themes.length;
+        let t = themes[themeIdx];
+        document.documentElement.style.setProperty('--bg-color', t.bg);
+        document.documentElement.style.setProperty('--lamp-color', t.lamp);
+        document.documentElement.style.setProperty('--glow-intensity', t.glow);
+        document.getElementById('lampShade').style.background = t.lamp;
+        document.getElementById('chainHandle').style.background = t.lamp;
+        
+        generateStars(t.lamp);
+    }
+
+    function generateStars(color) {
+        let container = document.getElementById('starContainer');
+        container.innerHTML = "";
+        for (let i = 0; i < 35; i++) {
+            let star = document.createElement('div');
+            star.className = 'star';
+            let size = Math.random() * 3 + 2;
+            star.style.width = `${size}px`;
+            star.style.height = `${size}px`;
+            star.style.top = `${Math.random() * 100}%`;
+            star.style.left = `${Math.random() * 100}%`;
+            star.style.animationDuration = `${Math.random() * 2 + 1}s`;
+            star.style.boxShadow = `0 0 6px ${color}`;
+            container.appendChild(star);
+        }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+        generateStars("#f59e0b");
+    });
+
+    const querySlot = document.getElementById('querySlot');
+    if (querySlot) {
+        let allOpt = document.createElement('option');
+        allOpt.value = "ALL";
+        allOpt.innerText = "⚡ View All Submissions (All Wardens)";
+        querySlot.appendChild(allOpt);
+
+        let curr = new Date();
+        for (let i = -14; i <= 14; i++) {
+            let d = new Date();
+            d.setDate(curr.getDate() + i);
+            let dateKey = d.toISOString().split('T')[0];
+            let displayStr = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+
+            ['Day', 'Night'].forEach(shift => {
+                let opt = document.createElement('option');
+                opt.value = `${dateKey} ${shift}`;
+                let labelTag = i < 0 ? " (Past)" : (i === 0 ? " (Today)" : " (Upcoming)");
+                opt.innerText = `${displayStr} - ${shift} Shift${labelTag}`;
+                querySlot.appendChild(opt);
+            });
+        }
+        querySlot.value = "ALL";
+    }
+
+    db.ref('wardens').on('value', (snapshot) => {
+        let data = snapshot.val() || {};
+        let rawList = Object.values(data);
+        window.allSubmissions = rawList.filter(sub => sub && sub.name && sub.phone && sub.name.trim() !== "" && sub.phone.trim() !== "");
+        refreshDashboard();
+    }, (error) => {
+        window.allSubmissions = [];
+        refreshDashboard();
+    });
+
+    function filterTableBySlot() {
+        renderTable("SLOT", querySlot.value);
+    }
+
+    function refreshDashboard() {
+        renderWardenQuickList();
+        renderTable("ALL", "ALL");
+    }
+
+    function formatShiftsOrOptOut(warden) {
+        if (warden.notSharingNow) {
+            return `<span class="opt-out-badge">⏸️ Don't want to share availability now</span>`;
+        }
+        let slots = warden.slots || [];
+        if (slots.length === 0) {
+            return `<span style="color:#9ca3af; font-size:12px;">No shifts selected</span>`;
+        }
+        return slots.map(s => {
+            let p = s.split(' ');
+            let d = new Date(p[0]);
+            let dateDisplay = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+            return p[1] === 'Day'
+                ? `<span class="shift-badge-day">☀️ ${dateDisplay} (Day)</span>`
+                : `<span class="shift-badge-night">🌙 ${dateDisplay} (Night)</span>`;
+        }).join(' ');
+    }
+
+    function renderWardenQuickList() {
+        let submissions = window.allSubmissions || [];
+        let container = document.getElementById('wardenQuickList');
+
+        if (submissions.length === 0) {
+            container.innerHTML = "<div style='color:#9ca3af; font-size:13px;'>No registered wardens found yet.</div>";
+            return;
+        }
+
+        let html = "";
+        submissions.forEach(sub => {
+            let safeKey = sub.phone.replace(/[^0-9]/g, '');
+            let postcodeTag = sub.postcode ? `<span class="postcode-pill">📍 ${sub.postcode}</span>` : '';
+            html += `
+            <div class="warden-tag">
+                <div>
+                    <strong style="color:#f8fafc;">${sub.name}</strong> 
+                    <span style="color:#94a3b8; margin-left: 8px;">📱 ${sub.phone}</span>
+                    ${postcodeTag}
+                </div>
+                <div class="btn-group">
+                    <button class="btn-view" onclick="viewSpecificWarden('${sub.phone}')">View</button>
+                    <button class="btn-delete" onclick="deleteWarden('${safeKey}')">Delete</button>
+                </div>
+            </div>`;
+        });
+        container.innerHTML = html;
+    }
+
+    function viewSpecificWarden(phone) {
+        let submissions = window.allSubmissions || [];
+        let warden = submissions.find(s => s.phone === phone);
+        if (!warden) return;
+
+        let div = document.getElementById('masterList');
+        let titleHeader = document.getElementById('listTitle');
+        titleHeader.innerText = `Details for Warden: ${warden.name} (${warden.phone})`;
+
+        let badgesHtml = formatShiftsOrOptOut(warden);
+
+        div.innerHTML = `<table>
+            <tr>
+                <th style="width: 18%;">Name</th>
+                <th style="width: 18%;">WhatsApp</th>
+                <th style="width: 18%;">City / Postcode</th>
+                <th style="width: 14%;">Site</th>
+                <th style="width: 32%;">Shifts / Status</th>
+            </tr>
+            <tr>
+                <td style="font-weight:600; color:#f8fafc;">${warden.name}</td>
+                <td style="color:#94a3b8;">${warden.phone}</td>
+                <td><span class="postcode-pill">${warden.postcode || 'N/A'}</span></td>
+                <td style="color:#cbd5e1;">${warden.site || 'General'}</td>
+                <td>${badgesHtml}</td>
+            </tr>
+        </table>`;
+    }
+
+    function deleteWarden(safeKey) {
+        if (!safeKey) return;
+        if (confirm("Are you sure you want to delete this warden from cloud?")) {
+            db.ref('wardens/' + safeKey).remove((error) => {
+                if (error) alert("Failed to delete.");
+            });
+        }
+    }
+
+    function renderTable(mode, param) {
+        let submissions = window.allSubmissions || [];
+        let div = document.getElementById('masterList');
+        let titleHeader = document.getElementById('listTitle');
+
+        if (submissions.length === 0) {
+            div.innerHTML = "<div style='color:#9ca3af; padding:10px;'>No submissions recorded yet.</div>";
+            titleHeader.innerText = "Master Submissions Rota List:";
+            return;
+        }
+
+        let filteredSubmissions = submissions;
+        if (mode === "SLOT" && param !== "ALL") {
+            filteredSubmissions = submissions.filter(sub => !sub.notSharingNow && sub.slots && sub.slots.includes(param));
+            titleHeader.innerText = `Wardens Available for: ${param}`;
+        } else {
+            titleHeader.innerText = "Master Submissions Rota List (All Wardens):";
+            if (querySlot) querySlot.value = "ALL";
+        }
+
+        if (filteredSubmissions.length === 0) {
+            div.innerHTML = "<div style='color:#9ca3af; padding:10px;'>No wardens available for this selection.</div>";
+            return;
+        }
+
+        let html = `<table>
+            <tr>
+                <th style="width: 18%;">Name</th>
+                <th style="width: 18%;">WhatsApp</th>
+                <th style="width: 18%;">City / Postcode</th>
+                <th style="width: 14%;">Site</th>
+                <th style="width: 32%;">Selected Shifts / Status</th>
+            </tr>`;
+
+        filteredSubmissions.forEach(sub => {
+            let badgesHtml = formatShiftsOrOptOut(sub);
+
+            html += `<tr>
+                <td style="font-weight:600; color:#f8fafc;">${sub.name}</td>
+                <td style="color:#94a3b8;">${sub.phone}</td>
+                <td><span class="postcode-pill">${sub.postcode || 'N/A'}</span></td>
+                <td style="color:#cbd5e1;">${sub.site || 'General'}</td>
+                <td>${badgesHtml}</td>
+            </tr>`;
+        });
+
+        html += `</table>`;
+        div.innerHTML = html;
+    }
+</script>
+</body>
+</html>

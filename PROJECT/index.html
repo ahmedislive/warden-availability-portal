@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Warden Duty Availability Portal</title>
+    <!-- Firebase App & Realtime Database SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    
+    <style>
+        body { font-family: 'Inter', sans-serif; background: #090d16; color: #f8fafc; margin: 0; padding: 20px; display: flex; justify-content: center; min-height: 100vh; }
+        .card { background: #111827; border: 1px solid #1f2937; padding: 30px; border-radius: 16px; box-shadow: 0 20px 25px rgba(0,0,0,0.6); width: 100%; max-width: 550px; box-sizing: border-box; }
+        
+        .intro-box { text-align: center; padding: 20px 0; }
+        .helicopter-title { font-size: 32px; font-weight: 800; letter-spacing: 2px; color: #f1f5f9; text-transform: uppercase; }
+        .helicopter-sub { font-size: 13px; color: #38bdf8; letter-spacing: 1.5px; margin-bottom: 25px; }
+
+        .chopper-stage { position: relative; height: 140px; margin-bottom: 25px; display: flex; justify-content: center; align-items: center; }
+        .realistic-chopper { position: relative; width: 220px; height: 80px; animation: floatChopper 3s ease-in-out infinite; }
+        @keyframes floatChopper {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            50% { transform: translateY(-8px) rotate(-1deg); }
+        }
+        .chopper-cockpit {
+            position: absolute; width: 90px; height: 50px; background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            border-radius: 50px 40px 30px 40px; top: 15px; left: 60px;
+            box-shadow: inset 0 0 15px rgba(255,255,255,0.4), 0 5px 15px rgba(0,0,0,0.5);
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        .chopper-glass {
+            position: absolute; width: 35px; height: 30px; background: linear-gradient(135deg, #93c5fd, #60a5fa);
+            border-radius: 30px 10px 10px 20px; top: 18px; left: 105px; opacity: 0.8;
+        }
+        .chopper-tail-boom { position: absolute; width: 90px; height: 10px; background: #1e40af; top: 28px; left: 145px; transform: skewX(-15deg); }
+        .chopper-tail-rotor { position: absolute; width: 4px; height: 25px; background: #94a3b8; top: 20px; left: 230px; animation: spinTail 0.05s linear infinite; }
+        @keyframes spinTail { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .main-rotor {
+            position: absolute; width: 240px; height: 6px; background: #cbd5e1; top: 2px; left: 50px; border-radius: 3px;
+            animation: spinMain 0.08s linear infinite; box-shadow: 0 0 10px rgba(255,255,255,0.8);
+        }
+        @keyframes spinMain { 0% { transform: scaleX(1); } 50% { transform: scaleX(0.1); } 100% { transform: scaleX(1); } }
+        .chopper-skids { position: absolute; width: 130px; height: 6px; background: #64748b; bottom: 5px; left: 50px; border-radius: 3px; box-shadow: 0 8px 0 #475569; }
+
+        .get-started-btn {
+            background: linear-gradient(135deg, #0284c7, #2563eb); color: white; border: none;
+            padding: 15px 35px; font-size: 15px; font-weight: bold; border-radius: 30px;
+            cursor: pointer; box-shadow: 0 0 20px rgba(14, 165, 233, 0.5); transition: transform 0.2s;
+        }
+        .get-started-btn:hover { transform: scale(1.05); }
+
+        .screen { display: none; }
+        .screen.active { display: block; }
+        
+        label { display: block; margin-top: 15px; font-weight: 500; color: #cbd5e1; font-size: 14px; }
+        input[type="text"], input[type="tel"] {
+            width: 100%; padding: 12px; margin-top: 6px; background: #030712; border: 1px solid #374151;
+            color: white; border-radius: 8px; box-sizing: border-box; font-size: 14px; outline: none;
+        }
+        input[type="text"]:focus, input[type="tel"]:focus { border-color: #38bdf8; }
+
+        .error-msg {
+            color: #f87171; background: rgba(239, 68, 68, 0.12); border: 1px solid #ef4444;
+            padding: 8px 12px; border-radius: 6px; font-size: 12px; margin-top: 6px; display: none;
+        }
+
+        .opt-out-box {
+            margin-top: 16px; background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.45);
+            border-radius: 10px; padding: 12px 14px; display: flex; align-items: center; gap: 10px; cursor: pointer;
+        }
+        .opt-out-box input[type="checkbox"] {
+            width: 18px; height: 18px; accent-color: #f59e0b; cursor: pointer; flex-shrink: 0;
+        }
+        .opt-out-text { font-size: 13px; font-weight: 600; color: #fbbf24; user-select: none; }
+
+        .slots-disabled { opacity: 0.35; pointer-events: none; transition: opacity 0.25s ease; }
+
+        .slot-box { margin-top: 12px; background: #030712; border: 1px solid #1f2937; border-radius: 8px; padding: 12px; }
+        .shift-options { display: flex; gap: 10px; margin-top: 8px; }
+        .shift-label {
+            flex: 1; padding: 10px; border-radius: 6px; text-align: center; cursor: pointer;
+            font-weight: 600; font-size: 13px; background: #1f2937; color: #9ca3af; user-select: none;
+        }
+        .shift-options input[type="checkbox"] { display: none; }
+        .shift-options input[type="checkbox"]:checked + .shift-label { background: #38bdf8; color: #000; box-shadow: 0 0 10px rgba(56,189,248,0.5); }
+        
+        .success-box { background: #064e3b; border: 1px solid #059669; padding: 12px; border-radius: 8px; margin-bottom: 15px; font-size: 13px; color: #6ee7b7; display: none; }
+        #loadingOverlay { display: none; text-align: center; color: #38bdf8; font-weight: bold; margin-top: 15px; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <div id="introScreen" class="intro-box screen active">
+        <div class="helicopter-title">Warden Portal</div>
+        <div class="helicopter-sub">Secure Rota Dispatch</div>
+
+        <div class="chopper-stage">
+            <div class="realistic-chopper">
+                <div class="main-rotor"></div>
+                <div class="chopper-cockpit"></div>
+                <div class="chopper-glass"></div>
+                <div class="chopper-tail-boom"></div>
+                <div class="chopper-tail-rotor"></div>
+                <div class="chopper-skids"></div>
+            </div>
+        </div>
+
+        <button class="get-started-btn" onclick="showLogin()">Proceed to Portal &rarr;</button>
+    </div>
+
+    <div id="loginScreen" class="screen">
+        <h2 style="color:#38bdf8; text-align:center; margin-top:0;">Warden Verification</h2>
+        <p style="text-align:center; color:#9ca3af; font-size:13px;">Enter your details to submit or manage availability</p>
+
+        <form id="loginForm" novalidate>
+            <label>Full Name:</label>
+            <input type="text" id="loginName" required placeholder="Enter your name">
+
+            <label>WhatsApp Number (UK or Pakistan):</label>
+            <input type="tel" id="loginPhone" required placeholder="e.g. 07700900123 or 03001234567" oninput="clearPhoneError()">
+            <div id="phoneError" class="error-msg">Invalid number! Enter a valid UK (e.g. 07xxxxxxxxx / +447xxxxxxxxx) or Pakistan (e.g. 03xxxxxxxxx / +923xxxxxxxxx) number.</div>
+
+            <button type="submit" style="width:100%; background:#0284c7; color:white; border:none; padding:14px; margin-top:20px; border-radius:8px; font-weight:bold; cursor:pointer;">Continue</button>
+        </form>
+        <div id="loadingOverlay">Checking database...</div>
+    </div>
+
+    <div id="formScreen" class="screen">
+        <h2 style="color:#38bdf8; text-align:center; margin-top:0;">Shift Availability Form</h2>
+        
+        <div id="welcomeBackNotice" class="success-box">
+            ✅ Welcome back! Your previous submissions are loaded below. You can modify your shifts and click Save.
+        </div>
+
+        <form id="wardenForm">
+            <input type="hidden" id="wName">
+            <input type="hidden" id="wPhone">
+
+            <label>City / Postcode (Required):</label>
+            <input type="text" id="wPostcode" required placeholder="e.g. London E1 6AN or Middlesbrough TS1 1AA">
+
+            <label>Assigned Site Name (Optional):</label>
+            <input type="text" id="wSite" placeholder="e.g. Mint Street">
+
+            <label class="opt-out-box" for="noAvailabilityNow">
+                <input type="checkbox" id="noAvailabilityNow" onchange="toggleNoAvailability()">
+                <span class="opt-out-text">Don't want to share availability now</span>
+            </label>
+
+            <div id="slotsWrapper" style="margin-top:15px;">
+                <div id="weekSlotsContainer"></div>
+            </div>
+
+            <button type="submit" style="width:100%; background:#059669; color:white; border:none; padding:14px; margin-top:20px; border-radius:8px; font-weight:bold; cursor:pointer;">Save / Update Availability</button>
+        </form>
+    </div>
+</div>
+
+<script>
+    const firebaseConfig = {
+        databaseURL: "https://availability-portal-default-rtdb.firebaseio.com"
+    };
+    if (!firebase.apps.length) {
+        firebase.initializeApp(firebaseConfig);
+    }
+    const db = firebase.database();
+
+    // Validates UK numbers (07 + 9 digits, +44/44 + 10 digits, or UK 01/02/03 10-11 digits / +44 9-10 digits)
+    // and Pakistani numbers (03 + 9 digits or +92/92 + 3 + 9 digits)
+    function isValidUkOrPkPhone(rawPhone) {
+        let cleaned = rawPhone.replace(/[\s\-()]/g, '');
+
+        // Pakistan mobile: 03XXXXXXXXX (11 digits) or +923XXXXXXXXX / 923XXXXXXXXX (13 chars with + or 12 digits)
+        const pkRegex = /^(?:\+?92|0)3\d{9}$/;
+
+        // UK mobile: 07XXXXXXXXX (11 digits) or +447XXXXXXXXX / 447XXXXXXXXX
+        const ukMobileRegex = /^(?:\+?44|0)7\d{9}$/;
+
+        // UK landline/general: 0[12389]XXXXXXXX (10-11 digits) or +44[12389]XXXXXXXX (9-10 digits after +44)
+        const ukLandlineRegex = /^(?:0[12389]\d{8,9}|\+?44[12389]\d{8,9})$/;
+
+        return pkRegex.test(cleaned) || ukMobileRegex.test(cleaned) || ukLandlineRegex.test(cleaned);
+    }
+
+    function clearPhoneError() {
+        document.getElementById('phoneError').style.display = 'none';
+    }
+
+    function showLogin() {
+        document.getElementById('introScreen').classList.remove('active');
+        document.getElementById('loginScreen').classList.add('active');
+    }
+
+    function toggleNoAvailability() {
+        const checked = document.getElementById('noAvailabilityNow').checked;
+        const wrapper = document.getElementById('slotsWrapper');
+        if (checked) {
+            wrapper.classList.add('slots-disabled');
+            document.querySelectorAll('input[name="slot"]').forEach(cb => cb.checked = false);
+        } else {
+            wrapper.classList.remove('slots-disabled');
+        }
+    }
+
+    document.getElementById('loginForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        let name = document.getElementById('loginName').value.trim();
+        let phone = document.getElementById('loginPhone').value.trim();
+        let phoneErr = document.getElementById('phoneError');
+
+        if (!name) {
+            alert("Please enter your full name.");
+            return;
+        }
+
+        if (!isValidUkOrPkPhone(phone)) {
+            phoneErr.style.display = 'block';
+            return;
+        }
